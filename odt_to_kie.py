@@ -1,44 +1,102 @@
-from argparse import ArgumentParser
+import argparse
 from odf import opendocument
-from src.odt_convert import replace_text
 import subprocess
 import os
 import fitz
+from tqdm import tqdm
+import random
+import json
+import copy
 from src.pdf_extraction import page_extraction
-from src.image_convert import bytes2pillow
-from src.get_labelme import labelme_gen
+from src.image_convert import bytes2pillow, pillow2base64
+from src.get_label import labelme_gen, kie_gen
+from src.odt_convert import replace_text, gen_info
 
 
-odtin_path = "/home/phung/AnhHung/data/invoice/invoice_CFS/odt_template/demo/sale_contract.odt"
-odtout_path = "/home/phung/AnhHung/data/invoice/invoice_CFS/odt_template/demo/temp.odt"
-pdf_path = "/home/phung/AnhHung/data/invoice/invoice_CFS/odt_template/demo/temp.pdf"
-doc = opendocument.load(odtin_path)
 
-keys_list = ["contract_no", "contract_date", "seller_company", "seller_address", "buyer_company"]
+KEY_LIST = ["contract_no", 
+             "contract_date", 
+             "seller_company", 
+             "seller_address", 
+             "buyer_company",
+             "specifications",
+             "quantity",
+             "unit_price",
+             "total_value",
+             "time_of_shipment",
+             ]
 
-replace_dict = {
-    "contract_no" : "RH9230332HN", 
-    "contract_date": "03/20/2023", 
-    "seller_company": "Hong Kong Chung Nam Trading Co., Ltd", 
-    "seller_address": "FLATIRM 01. 8F, NAM FUNG COMMERCIAL CENTRE, NO.19 LAM LOK STREET, KOWLOON BAY, HONGKONG", 
-    "buyer_company": "HENG YANG PAPER MILL CO.,LTD"
+odt_folder = "/home/phung/AnhHung/data/invoice/invoice_CFS/odt_template/"
+temp_folder = "./temp"
+tempodt_path = "./temp.odt"
+temppdf_path = "./temp.pdf"
+
+
+parser = argparse.ArgumentParser(description='Generate KIE json data from odt template')
+parser.add_argument('-n','--samplenum', type=int, help='Number of json each odt template')
+parser.add_argument('-o', '--output', type=str, help='Output kie json file')
+parser.add_argument('-i','--input', type=str, help='Input odt template folder')
+
+args = parser.parse_args()
+
+odt_folder = args.input
+
+json_info = {
+    'classes': KEY_LIST,
+    'samples':[]
 }
 
-for key in replace_dict:
-    replace_text(doc.topnode, f"$({key})", replace_dict[key])
-doc.save(odtout_path)    
-print("Odt to Odt: Done!")
+odt_templates = []
 
-# Convert ODT to PDF using unoconv
-# subprocess.run(['unoconv', '-f', 'pdf', '-o', pdf_path, odtout_path])
-subprocess.run(['unoconv', '--format=pdf', '-o', pdf_path, odtout_path])
+pdf_dict = {}
+for filename in os.listdir(odt_folder):
+    if not filename.endswith("odt"):
+        continue
+    odtin_path = os.path.join(odt_folder, filename)
+    
+    # odt_templates.append(doc)
+    print(filename)
+    template_name = os.path.basename(filename)
 
-print("Odt to Pdf: Done!")
+    for i in tqdm(range(args.samplenum)):
+        doc = opendocument.load(odtin_path)
+        replace_dict = gen_info()
+        print(replace_dict)
+        for key in replace_dict:
+            replace_text(doc.topnode, f"$({key})", replace_dict[key])
+        doc.save(os.path.join(temp_folder, f"{template_name}_{i}.odt"))    
+        pdf_dict[f"{template_name}_{i}.pdf"] = copy.deepcopy(replace_dict)
 
-labelme_folder = "/home/phung/AnhHung/data/invoice/invoice_CFS/odt_template/demo/labelme/"
-pdf_doc = fitz.open(pdf_path)
-for page in pdf_doc:
-    pixmap = page.get_pixmap()
-    image = bytes2pillow(pixmap.tobytes())
-    texts, polygons = page_extraction(page, extract_type = "line")
-    labelme_gen(polygons, image, 'test', labelme_folder)
+    for i in tqdm(range(args.samplenum)):
+        # Convert ODT to PDF using unoconv
+        # subprocess.run(['unoconv', '-f', 'pdf', '-o', pdf_path, odtout_path])
+        subprocess.run(['unoconv', '--format=pdf', '-o', os.path.join(temp_folder, f"{template_name}_{i}.pdf"), 
+                                                         os.path.join(temp_folder, f"{template_name}_{i}.odt")])
+
+for pdf_name in tqdm(pdf_dict):
+
+    pdf_doc = fitz.open(os.path.join(temp_folder,pdf_name))
+    replace_dict = pdf_dict[pdf_name]
+    for page in pdf_doc:
+        pixmap = page.get_pixmap()
+        image = bytes2pillow(pixmap.tobytes())
+        w, h = image.size
+        texts, polygons = page_extraction(page, extract_type = "line")
+
+        kie_dict = kie_gen(texts = texts, 
+                        key_list = KEY_LIST, 
+                        replace_dict = replace_dict)
+
+        sample = {
+            "texts": texts,
+            "boxes": polygons,
+            "links": [],
+            "classes": kie_dict,
+            "image_width": w,
+            "image_height": h,
+            "image_base64": pillow2base64(image)
+        }
+        json_info['samples'].append(sample)
+
+with open(args.output, "w", encoding="utf-8") as f:
+    json.dump(json_info, f, ensure_ascii=False)
