@@ -52,7 +52,7 @@ for filename in os.listdir(odt_folder):
     temp_count = 1
     for i in tqdm(range(args.samplenum)):
         doc = opendocument.load(odtin_path)
-        replace_dict = gen_info()
+        replace_dict = gen_info(KEY_LIST)
         for key in replace_dict:
             replace_text(doc.topnode, f"$({key})", replace_dict[key])
         doc.save(tempodt_path)    
@@ -65,6 +65,6 @@ for filename in os.listdir(odt_folder):
         for page in pdf_doc:
             pixmap = page.get_pixmap()
             image = bytes2pillow(pixmap.tobytes())
-            texts, polygons = page_extraction(page, extract_type = "line")
+            texts, polygons = page_extraction(page, extract_type = "word")
             labelme_gen(polygons, image, f'{template_name}_{temp_count}', args.output)
             temp_count+=1

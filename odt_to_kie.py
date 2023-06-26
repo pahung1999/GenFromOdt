@@ -58,21 +58,24 @@ for filename in os.listdir(odt_folder):
     print(filename)
     template_name = os.path.basename(filename)
 
+    print("Replace text to odt...")
     for i in tqdm(range(args.samplenum)):
         doc = opendocument.load(odtin_path)
-        replace_dict = gen_info()
-        print(replace_dict)
+        replace_dict = gen_info(KEY_LIST)
+        # print(replace_dict)
         for key in replace_dict:
             replace_text(doc.topnode, f"$({key})", replace_dict[key])
         doc.save(os.path.join(temp_folder, f"{template_name}_{i}.odt"))    
         pdf_dict[f"{template_name}_{i}.pdf"] = copy.deepcopy(replace_dict)
 
+    print("Odt to pdf...")
     for i in tqdm(range(args.samplenum)):
         # Convert ODT to PDF using unoconv
         # subprocess.run(['unoconv', '-f', 'pdf', '-o', pdf_path, odtout_path])
         subprocess.run(['unoconv', '--format=pdf', '-o', os.path.join(temp_folder, f"{template_name}_{i}.pdf"), 
                                                          os.path.join(temp_folder, f"{template_name}_{i}.odt")])
 
+print("Pdf to KIE...")
 for pdf_name in tqdm(pdf_dict):
 
     pdf_doc = fitz.open(os.path.join(temp_folder,pdf_name))
@@ -81,16 +84,23 @@ for pdf_name in tqdm(pdf_dict):
         pixmap = page.get_pixmap()
         image = bytes2pillow(pixmap.tobytes())
         w, h = image.size
-        texts, polygons = page_extraction(page, extract_type = "line")
+        texts, polygons, lines, line_word_mapping = page_extraction(page, extract_type = "word_KIE")
+
+        links = []
+        for line_id in line_word_mapping:
+            text_ids = line_word_mapping[line_id]
+            for i in range(len(text_ids)-1):
+                links.append([text_ids[i], text_ids[i+1]])
 
         kie_dict = kie_gen(texts = texts, 
                         key_list = KEY_LIST, 
-                        replace_dict = replace_dict)
-
+                        replace_dict = replace_dict,
+                        lines = lines,
+                        line_word_mapping = line_word_mapping)
         sample = {
             "texts": texts,
             "boxes": polygons,
-            "links": [],
+            "links": links,
             "classes": kie_dict,
             "image_width": w,
             "image_height": h,
