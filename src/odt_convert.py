@@ -6,9 +6,19 @@ from faker import Faker
 import locale
 
 
-
-
 def replace_text_single(Elem, item, pattern, repl):
+    """
+    Replace a single occurrence of a pattern with a replacement string in a text element.
+
+    Args:
+        Elem (odf.Element): The type of text element (e.g., text.H, text.P, text.Span).
+        item (odf.Element): The text element to be modified.
+        pattern (str): The pattern to search for.
+        repl (str): The replacement string.
+
+    Returns:
+        odf.Element: The modified text element.
+    """
     s = teletype.extractText(item)
     if s.find(pattern) != -1:
         # repl = get_format(pattern)(repl)
@@ -30,6 +40,18 @@ def replace_text_single(Elem, item, pattern, repl):
         return item
 
 def replace_text(node, k, v):
+    """
+    Replace occurrences of a pattern with a replacement string in a given node.
+
+    Args:
+        node (odf.Element): The parent node containing text elements.
+        k (str): The pattern to search for.
+        v (str): The replacement string.
+
+    Returns:
+        odf.Element: The modified parent node.
+    """
+
     elements = [text.H, text.P, text.Span]
     for Elem in elements:
         for elem in node.getElementsByType(Elem):
@@ -38,7 +60,12 @@ def replace_text(node, k, v):
     return node
 
 def gen_shipment_date():
+    """
+    Generate a random shipment date (date_X) and calculate the date after 3 months (date_Y).
 
+    Returns:
+        tuple: A tuple containing the shipment dates (date_X and date_Y) in the format "%m/%d/%Y".
+    """
     # Generate random date X
     start_date = datetime(2000, 1, 1)
     end_date = datetime(2023, 12, 31)
@@ -51,6 +78,16 @@ def gen_shipment_date():
     return date_X, date_Y
 
 def gen_info(KEY_LIST):
+    """
+    Generate replacement information based on the provided KEY_LIST.
+
+    Args:
+        KEY_LIST (list): The list of keys to generate information for.
+
+    Returns:
+        dict: A dictionary containing the generated replacement information.
+    """
+
     KEY_LIST_1 = ["contract_no", 
              "contract_date", 
              "seller_company", 

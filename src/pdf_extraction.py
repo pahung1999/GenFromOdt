@@ -2,7 +2,17 @@ import fitz
 import numpy as np
 
 def page_extraction_word(page):
-    #Extract words
+    """
+    Extract individual words and their corresponding polygons from a page.
+
+    Args:
+        page (fitz.Page): The page to extract words from.
+
+    Returns:
+        tuple: A tuple containing the extracted words and their polygons.
+            texts (list): A list of words extracted from the page.
+            polygons (list): A list of polygons corresponding to each word.
+    """
     texts = []
     polygons = []
     for x1, y1, x2, y2, word, block_id, line_id, text_id in page.get_text("words"):
@@ -12,7 +22,17 @@ def page_extraction_word(page):
     return texts, polygons
 
 def page_extraction_block(page):
-    #Extract paragraphs 
+    """
+    Extract paragraphs (blocks) and their corresponding polygons from a page.
+
+    Args:
+        page (fitz.Page): The page to extract blocks from.
+
+    Returns:
+        tuple: A tuple containing the extracted blocks and their polygons.
+            texts (list): A list of blocks (paragraphs) extracted from the page.
+            polygons (list): A list of polygons corresponding to each block.
+    """
     texts = []
     polygons = []
     for x1, y1, x2, y2, block, block_id, block_type in page.get_text("blocks"):
@@ -24,6 +44,15 @@ def page_extraction_block(page):
     return texts, polygons
 
 def merge_rectangles(rectangles):
+    """
+    Merge multiple rectangles into a single bounding rectangle.
+
+    Args:
+        rectangles (list): A list of rectangles to merge.
+
+    Returns:
+        list: The merged bounding rectangle represented as a list of coordinates.
+    """
     # Find the minimum and maximum x and y coordinates of all rectangles
     x1_values = [rect[0] for rect in rectangles]
     y1_values = [rect[1] for rect in rectangles]
@@ -42,7 +71,18 @@ def merge_rectangles(rectangles):
 
 
 def page_extraction_line(page):
-    #Extract lines
+    """
+    Extract lines of text and their corresponding polygons from a page.
+
+    Args:
+        page (fitz.Page): The page to extract lines from.
+
+    Returns:
+        tuple: A tuple containing the extracted lines and their polygons.
+            texts (list): A list of lines extracted from the page.
+            polygons (list): A list of polygons corresponding to each line.
+    """
+
     text_info = {}
     for x1, y1, x2, y2, word, block_id, line_id, text_id in page.get_text("words"):
         line_id = f"{block_id}_{line_id}"
@@ -69,6 +109,19 @@ def page_extraction_line(page):
 
 
 def page_extraction_word_KIE(page):
+    """
+    Extract words, polygons, lines, and line-word mappings from a page.
+
+    Args:
+        page (fitz.Page): The page to extract information from.
+
+    Returns:
+        tuple: A tuple containing the extracted words, polygons, lines, and line-word mappings.
+            texts (list): A list of words extracted from the page.
+            polygons (list): A list of polygons corresponding to each word.
+            lines (list): A list of lines extracted from the page.
+            line_word_mapping (dict): A dictionary mapping line IDs to word IDs.
+    """
     #Extract words and line mapping
     texts = []
     polygons = []
@@ -100,6 +153,20 @@ def page_extraction_word_KIE(page):
     return texts, polygons, lines, line_word_mapping
 
 def page_extraction(page, extract_type = "word"):
+    """
+    Extract information from a page based on the specified extraction type.
+
+    Args:
+        page (fitz.Page): The page to extract information from.
+        extract_type (str): The type of extraction to perform. Possible values: 'word', 'word_KIE', 'block', 'line'.
+
+    Returns:
+        tuple: A tuple containing the extracted information based on the extraction type.
+            texts (list): A list of extracted text elements.
+            polygons (list): A list of polygons corresponding to each text element.
+            lines (list): A list of extracted lines.
+            line_word_mapping (dict): A dictionary mapping line IDs to word IDs.
+    """
     type_list = ['word', 'word_KIE', 'block', 'line']
     if extract_type not in type_list:
         print("No type in type_list")

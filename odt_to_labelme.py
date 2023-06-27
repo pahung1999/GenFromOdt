@@ -29,7 +29,7 @@ tempodt_path = "./temp.odt"
 temppdf_path = "./temp.pdf"
 
 
-parser = argparse.ArgumentParser(description='Generate KIE json data from odt template')
+parser = argparse.ArgumentParser(description='Generate labelme data from odt template')
 parser.add_argument('-n','--samplenum', type=int, help='Number of json each odt template')
 parser.add_argument('-o', '--output', type=str, help='Output labelme file')
 parser.add_argument('-i','--input', type=str, help='Input odt template folder')
