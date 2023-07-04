@@ -1,112 +1,135 @@
-import argparse
-from odf import opendocument
-import subprocess
+import yaml
+import json
 import os
 import fitz
-from tqdm import tqdm
-import random
-import json
-import copy
-from src.pdf_extraction import page_extraction
-from src.image_convert import bytes2pillow, pillow2base64
-from src.get_label import labelme_gen, kie_gen
+from odf import opendocument
 from src.odt_convert import replace_text, gen_info
+from src.image_convert import bytes2pillow
+from src.pdf_extraction import page_extraction_word_KIE
+from src.image_convert import bytes2pillow, pillow2base64
+from src.get_label import kie_gen
+from tqdm import tqdm
+import subprocess
 
+yaml_path = "./config/kie.yml"
+with open(yaml_path, 'r') as file:
+    config_gen = yaml.safe_load(file)
 
+key_dict = config_gen['key_dict_path']
+with open(key_dict, "r", encoding="utf-8") as f:
+    key_dict=json.load(f)
 
-KEY_LIST = ["contract_no", 
-             "contract_date", 
-             "seller_company", 
-             "seller_address", 
-             "buyer_company",
-             "specifications",
-             "quantity",
-             "unit_price",
-             "total_value",
-             "time_of_shipment",
-             ]
+def mix_label_list(label_list):
+    new_label = []
+    for labels in label_list:
+        for label in labels:
+            if label not in new_label:
+                new_label.append(label)
+    return new_label
 
-odt_folder = "/home/phung/AnhHung/data/invoice/invoice_CFS/odt_template/"
-temp_folder = "./temp"
-tempodt_path = "./temp.odt"
-temppdf_path = "./temp.pdf"
+key_type_list = []
+for key_type in config_gen["key_and_odt"]:
+    if key_type not in key_dict:
+        raise Exception(f"{key_type} not in key_dict")
+    else:
+        key_type_list.append(key_type)
 
+if config_gen['label'] is None:
+    label_list = [key_dict[x]['label'] for x in key_type_list]
+    labels = mix_label_list(label_list)
+else:
+    labels = config_gen['label']
 
-parser = argparse.ArgumentParser(description='Generate KIE json data from odt template')
-parser.add_argument('-n','--samplenum', type=int, help='Number of json each odt template')
-parser.add_argument('-o', '--output', type=str, help='Output kie json file')
-parser.add_argument('-i','--input', type=str, help='Input odt template folder')
+print("output labels: ", labels)
 
-args = parser.parse_args()
-
-odt_folder = args.input
 
 json_info = {
-    'classes': KEY_LIST,
+    'classes': labels,
     'samples':[]
 }
 
-odt_templates = []
 
-pdf_dict = {}
-for filename in os.listdir(odt_folder):
-    if not filename.endswith("odt"):
-        continue
-    odtin_path = os.path.join(odt_folder, filename)
+for key_type in key_type_list:
     
-    # odt_templates.append(doc)
-    print(filename)
-    template_name = os.path.basename(filename)
+    #key to replace in odt file
+    replace_key = key_dict[key_type]['replace_key']
+    
+    for odt_file in os.listdir(config_gen['odt_dir']):
+        odt_temp_name = os.path.splitext(odt_file)[0]
+        if odt_temp_name not in config_gen["key_and_odt"][key_type]:
+            continue
 
-    print("Replace text to odt...")
-    for i in tqdm(range(args.samplenum)):
-        doc = opendocument.load(odtin_path)
-        replace_dict = gen_info(KEY_LIST)
-        # print(replace_dict)
-        for key in replace_dict:
-            replace_text(doc.topnode, f"$({key})", replace_dict[key])
-        doc.save(os.path.join(temp_folder, f"{template_name}_{i}.odt"))    
-        pdf_dict[f"{template_name}_{i}.pdf"] = copy.deepcopy(replace_dict)
+        print(f"Gen {key_type} from {odt_file}")
+        
+        for i in tqdm(range(config_gen["sample_num"])):
 
-    print("Odt to pdf...")
-    for i in tqdm(range(args.samplenum)):
-        # Convert ODT to PDF using unoconv
-        # subprocess.run(['unoconv', '-f', 'pdf', '-o', pdf_path, odtout_path])
-        subprocess.run(['unoconv', '--format=pdf', '-o', os.path.join(temp_folder, f"{template_name}_{i}.pdf"), 
-                                                         os.path.join(temp_folder, f"{template_name}_{i}.odt")])
+            doc = opendocument.load(os.path.join(config_gen['odt_dir'], odt_file))
+            #Gen replace dict
+            replace_dict =  gen_info(key_type, replace_key) 
 
-print("Pdf to KIE...")
-for pdf_name in tqdm(pdf_dict):
+            #Replace odt file
+            for key in replace_dict:
+                replace_text(doc.topnode, f"$({key})", replace_dict[key])
+            doc.save("temp.odt")
 
-    pdf_doc = fitz.open(os.path.join(temp_folder,pdf_name))
-    replace_dict = pdf_dict[pdf_name]
-    for page in pdf_doc:
-        pixmap = page.get_pixmap()
-        image = bytes2pillow(pixmap.tobytes())
-        w, h = image.size
-        texts, polygons, lines, line_word_mapping = page_extraction(page, extract_type = "word_KIE")
+            #Save to pdf
+            subprocess.run(['unoconv', '--format=pdf', '-o', "temp.pdf", "temp.odt"])
 
-        links = []
-        for line_id in line_word_mapping:
-            text_ids = line_word_mapping[line_id]
-            for i in range(len(text_ids)-1):
-                links.append([text_ids[i], text_ids[i+1]])
+            pdf_doc = fitz.open("temp.pdf")
+            for j, page in enumerate(pdf_doc):
+                pixmap = page.get_pixmap()
+                image = bytes2pillow(pixmap.tobytes())
+                w, h = image.size
+                shape_dict = {}
 
-        kie_dict = kie_gen(texts = texts, 
-                        key_list = KEY_LIST, 
-                        replace_dict = replace_dict,
-                        lines = lines,
-                        line_word_mapping = line_word_mapping)
-        sample = {
-            "texts": texts,
-            "boxes": polygons,
-            "links": links,
-            "classes": kie_dict,
-            "image_width": w,
-            "image_height": h,
-            "image_base64": pillow2base64(image)
-        }
-        json_info['samples'].append(sample)
+                texts, polygons, lines, line_word_mapping = page_extraction_word_KIE(page)
 
-with open(args.output, "w", encoding="utf-8") as f:
+                links = []
+                for line_id in line_word_mapping:
+                    text_ids = line_word_mapping[line_id]
+                    # if str(text_ids[0]) not in kie_dict:
+                    #     continue 
+                    for i in range(len(text_ids)-1):
+                        links.append([text_ids[i], text_ids[i+1]])
+
+                if config_gen['box_label'] == "line":
+                    kie_dict, line_links = kie_gen(texts = lines, 
+                                    key_list = labels, 
+                                    replace_dict = replace_dict,
+                                    lines = None,
+                                    line_word_mapping = None)
+                                    
+                if config_gen['box_label'] == "word": 
+                    kie_dict, line_links = kie_gen(texts = texts, 
+                                key_list = labels, 
+                                replace_dict = replace_dict,
+                                lines = lines,
+                                line_word_mapping = line_word_mapping)
+
+                for connect in line_links:
+                    links.append(connect)
+
+                max_label = 0
+                for labelkey in kie_dict:
+                    if int(labelkey) > max_label:
+                        max_label = int(labelkey)
+                #     label = labels[kie_dict[labelkey]]
+                #     text = lines[int(labelkey)]
+                #     print(f"{label}: {text}")
+                # print("="*10)
+                # print(f"{max_label}, {len(lines)}")
+
+                sample = {
+                    "texts": texts if config_gen['box_label'] == "word" else lines,
+                    "boxes": polygons,
+                    "links": links if config_gen['box_label'] == "word" else [],
+                    "classes": kie_dict if config_gen['pre_label'] else {},
+                    "image_width": w,
+                    "image_height": h,
+                    "image_base64": pillow2base64(image)
+                }
+                json_info['samples'].append(sample)
+
+print("Saving...")
+with open(config_gen['output_path'], "w", encoding="utf-8") as f:
     json.dump(json_info, f, ensure_ascii=False)

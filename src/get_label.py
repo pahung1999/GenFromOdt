@@ -3,12 +3,12 @@ from PIL import Image
 from .image_convert import pillow2base64
 import os
 
-def labelme_gen(polygons: list, image: Image, filename: str, savefolder: str):
+def labelme_gen(polygons: dict, image: Image, filename: str, savefolder: str):
     """
     Generate a LabelMe annotation file (.json) for the given polygons and image.
 
     Args:
-        polygons (list): List of polygon points representing the shapes.
+        polygons (list): dict of List of polygon points representing the shapes.
         image (PIL.Image): Input image.
         filename (str): Name of the file (without extension) to be saved.
         savefolder (str): Path to the folder where the generated files will be saved.
@@ -17,14 +17,15 @@ def labelme_gen(polygons: list, image: Image, filename: str, savefolder: str):
         None
     """
     shapes = []
-    for point in polygons:
-        shapes.append({
-            'label' : 'text', 
-            'points' : point, 
-            'group_id': None,
-            'shape_type': 'polygon',
-            'flags': {}
-        })
+    for label in polygons:
+        for point in polygons[label]:
+            shapes.append({
+                'label' : label, 
+                'points' : point, 
+                'group_id': None,
+                'shape_type': 'polygon',
+                'flags': {}
+            })
     
     w, h = image.size
     image.save(os.path.join(savefolder, f"{filename}.jpg"))
@@ -42,6 +43,7 @@ def labelme_gen(polygons: list, image: Image, filename: str, savefolder: str):
     with open(json_out, "w") as out:
         json.dump(labelme_data, out)
     return
+    
 
 
 def kie_gen(texts: list,
@@ -62,7 +64,7 @@ def kie_gen(texts: list,
     Returns:
         dict: A dictionary mapping text IDs to class IDs.
 
-    Error:
+    Note:
         This function is not yet completed. If a label has more than or equal to two lines, 
         the class will be incorrectly assigned to a line other than the first line, 
         whereas the expectation is to label it to the first line.
@@ -72,8 +74,6 @@ def kie_gen(texts: list,
     kie = {}
     if lines is None:
         for class_id, class_name in enumerate(key_list):
-            if class_name == "seller_address":
-                continue
             class_string = replace_dict[class_name]
             for text_id, text in enumerate(texts):
                 if text in class_string or class_string in text:
@@ -82,14 +82,23 @@ def kie_gen(texts: list,
                     # print("text: ",text)
                     # print('='*10)
                     kie[f'{text_id}'] = class_id
-        return kie
+        return kie, []
     else:
+        class_last_box = {}
+        line_links = []
         for class_id, class_name in enumerate(key_list):
-            if class_name == "seller_address":
-                continue
             class_string = replace_dict[class_name]
             for line_id, line in enumerate(lines):
                 if line in class_string or class_string in line:
                     text_id = line_word_mapping[str(line_id)][0]
-                    kie[f'{text_id}'] = class_id
-        return kie
+                    if class_id not in class_last_box:
+                        class_last_box[class_id] = [line_word_mapping[str(line_id)][-1], line_id]
+                        kie[f'{text_id}'] = class_id
+                    elif  abs(class_last_box[class_id][1] - line_id) >4:
+                        class_last_box[class_id] = [line_word_mapping[str(line_id)][-1], line_id]
+                        kie[f'{text_id}'] = class_id
+                    else:
+                        line_links.append([class_last_box[class_id][0], text_id])
+                        class_last_box[class_id] = [line_word_mapping[str(line_id)][-1], line_id]
+        # line_links = []
+        return kie, line_links

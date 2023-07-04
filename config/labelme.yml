@@ -1,0 +1,21 @@
+#Input odt template folder
+odt_dir: /home/phung/AnhHung/data/invoice/invoice_CFS/odt_template/
+
+#Labelme output path with image and json files, load by Labelme tool
+output_dir: /home/phung/AnhHung/data/invoice/invoice_CFS/odt_template/demo/labelme/
+
+key_dict_path: key_dict.json
+
+#Number of samples per odt template file
+sample_num: 5
+
+#word, line, block
+box_label: ['line']
+
+#Key list name and odt template name match key list 
+key_and_odt:
+  commercial_invoice: 
+    = commercial_invoice
+  packing_list:
+    - packing_list
+

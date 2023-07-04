@@ -1,0 +1,36 @@
+#Input odt template folder
+odt_dir: /home/phung/AnhHung/data/invoice/invoice_CFS/odt_template/
+
+#Key Information Extraction json output path, load by https://github.com/ndgnuh/relation-tagger
+output_path: /home/phung/AnhHung/data/invoice/invoice_CFS/odt_template/demo/kie/something.json
+
+key_dict_path: key_dict.json
+
+#Number of samples per odt template file
+sample_num: 5
+
+#word, line
+box_label: line
+
+#Key list name and odt template name match key list 
+key_and_odt:
+  commercial_invoice: 
+    = commercial_invoice
+  packing_list:
+    - packing_list
+
+pre_label: True
+
+# label: null 
+label:
+  - seller_company
+  - seller_address
+  - seller_tel
+  - seller_fax
+  - buyer_company
+  - buyer_address
+  - invoice_id
+  - invoice_date
+
+
+

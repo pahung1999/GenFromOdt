@@ -1,70 +1,77 @@
-import argparse
-from odf import opendocument
-import subprocess
+# import argparse
+
+# from odf.style import PageLayout, PageLayoutProperties
+# import copy
+# import random
+
+import yaml
+import json
 import os
 import fitz
+from odf import opendocument
 from src.odt_convert import replace_text, gen_info
-from src.pdf_extraction import page_extraction
 from src.image_convert import bytes2pillow
+from src.pdf_extraction import page_extraction
 from src.get_label import labelme_gen
-import json
 from tqdm import tqdm
-import copy
+import subprocess
 
-KEY_LIST = ["contract_no", 
-             "contract_date", 
-             "seller_company", 
-             "seller_address", 
-             "buyer_company",
-             "specifications",
-             "quantity",
-             "unit_price",
-             "total_value",
-             "time_of_shipment",
-             ]
+yaml_path = "./config/labelme.yml"
+with open(yaml_path, 'r') as file:
+    config_gen = yaml.safe_load(file)
 
-odt_folder = "/home/phung/AnhHung/data/invoice/invoice_CFS/odt_template/"
-temp_folder = "./temp"
-tempodt_path = "./temp.odt"
-temppdf_path = "./temp.pdf"
+key_dict = config_gen['key_dict_path']
+with open(key_dict, "r", encoding="utf-8") as f:
+    key_dict=json.load(f)
 
 
-parser = argparse.ArgumentParser(description='Generate labelme data from odt template')
-parser.add_argument('-n','--samplenum', type=int, help='Number of json each odt template')
-parser.add_argument('-o', '--output', type=str, help='Output labelme file')
-parser.add_argument('-i','--input', type=str, help='Input odt template folder')
-
-args = parser.parse_args()
-
-odt_folder = args.input
-
-odt_templates = []
-
-pdf_dict = {}
-for filename in os.listdir(odt_folder):
-    if not filename.endswith("odt"):
-        continue
-    odtin_path = os.path.join(odt_folder, filename)
+for key_type in config_gen["key_and_odt"]:
     
-    # odt_templates.append(doc)
-    print(filename)
-    template_name = os.path.basename(filename)
-    temp_count = 1
-    for i in tqdm(range(args.samplenum)):
-        doc = opendocument.load(odtin_path)
-        replace_dict = gen_info(KEY_LIST)
-        for key in replace_dict:
-            replace_text(doc.topnode, f"$({key})", replace_dict[key])
-        doc.save(tempodt_path)    
+    if key_type not in key_dict:
+        raise Exception(f"{key_type} not in key_dict")
+    else:
+        #key to replace in odt file
+        replace_key = key_dict[key_type]['replace_key']
 
-        # Convert ODT to PDF using unoconv
-        # subprocess.run(['unoconv', '-f', 'pdf', '-o', pdf_path, odtout_path])
-        subprocess.run(['unoconv', '--format=pdf', '-o', temppdf_path, tempodt_path])
+        #label name to save to kie json file
+        label_list = key_dict[key_type]['label']
 
-        pdf_doc = fitz.open(temppdf_path)
-        for page in pdf_doc:
-            pixmap = page.get_pixmap()
-            image = bytes2pillow(pixmap.tobytes())
-            texts, polygons = page_extraction(page, extract_type = "word")
-            labelme_gen(polygons, image, f'{template_name}_{temp_count}', args.output)
-            temp_count+=1
+    
+    for odt_file in os.listdir(config_gen['odt_dir']):
+        odt_temp_name = os.path.splitext(odt_file)[0]
+        if odt_temp_name not in config_gen["key_and_odt"][key_type]:
+            continue
+
+        print(f"Gen {key_type} from {odt_file}")
+        
+        for i in tqdm(range(config_gen["sample_num"])):
+
+            doc = opendocument.load(os.path.join(config_gen['odt_dir'], odt_file))
+            #Gen replace dict
+            replace_dict =  gen_info(key_type, replace_key) 
+
+            #Replace odt file
+            for key in replace_dict:
+                replace_text(doc.topnode, f"$({key})", replace_dict[key])
+            doc.save("temp.odt")
+
+            #Save to pdf
+            subprocess.run(['unoconv', '--format=pdf', '-o', "temp.pdf", "temp.odt"])
+
+            pdf_doc = fitz.open("temp.pdf")
+            for j, page in enumerate(pdf_doc):
+                pixmap = page.get_pixmap()
+                image = bytes2pillow(pixmap.tobytes())
+
+                shape_dict = {}
+
+                for box_label in config_gen['box_label']:
+                    texts, polygons = page_extraction(page, extract_type = box_label)
+                    shape_dict[box_label] = polygons
+
+                labelme_gen(shape_dict, 
+                            image, 
+                            f'{odt_temp_name}_{i}_page_{j:02d}', 
+                            config_gen['output_dir'])
+    
+

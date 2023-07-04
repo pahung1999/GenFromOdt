@@ -167,13 +167,11 @@ def page_extraction(page, extract_type = "word"):
             lines (list): A list of extracted lines.
             line_word_mapping (dict): A dictionary mapping line IDs to word IDs.
     """
-    type_list = ['word', 'word_KIE', 'block', 'line']
+    type_list = ['word', 'block', 'line']
     if extract_type not in type_list:
         print("No type in type_list")
     if extract_type == "word":
         return page_extraction_word(page)
-    if extract_type == "word_KIE":
-        return page_extraction_word_KIE(page)
     if extract_type == "block":
         return page_extraction_block(page)
     if extract_type == "line":
