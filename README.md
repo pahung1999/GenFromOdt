@@ -1,6 +1,6 @@
 The code supports generating data for the text detection problem and key information extraction from the odt file.
 
-Process: Load odt &rarr; Replace key &rarr; Save as pdf &rarr; Load pdf &rarr; Read texts, boxes &rarr; save as Text Detection or KIE
+Process: Load odt &rarr; Replace key &rarr; Save as pdf &rarr; Load pdf &rarr; Read texts and bounding boxes &rarr; save as Text Detection or KIE
 
 Steps to generate data:
 
