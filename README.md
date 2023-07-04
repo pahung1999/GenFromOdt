@@ -1,11 +1,12 @@
-Code hỗ trợ tạo dữ liệu cho bài toán text detection và key infomation extraction từ file odt.
+The code supports creating data for the text detection problem and key information extraction from the odt file.
 
-Các bước sinh dữ liệu:
-- Tạo file .odt (có thể dùng libre office): phần text dạng \$(key1), \$(key2),... có thể bị thay thế
-- Tạo thông tin thay thế: key_dict gồm key_name:{replace_key:[key1, key2, ...], label:[...]}
-- Cài đặt file config yml
-- Chạy file odt_to_kie.py hoặc odt_to_labelme.py
+Steps to generate data:
 
-Dữ liệu sinh:
-- Text detection: gồm image và json file được load bởi tool Labelme
-- Key infomation extraction: json file load bởi tool https://github.com/ndgnuh/relation-tagger
+- Create an .odt file (can use libre office): the text is in the form of \$(key1), \$(key2),... can be replaced
+- Generate replacement information: key_dict includes key_name:{replace_key:[key1, key2, ...], label:[...]}
+- Setting the config file yml
+- Run the file odt_to_kie.py or odt_to_labelme.py
+
+Birth data:
+- Text detection: includes image and json file loaded by Labelme tool
+- Key information extraction: json file loaded by tool https://github.com/ndgnuh/relation-tagger
