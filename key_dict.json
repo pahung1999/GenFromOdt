@@ -212,5 +212,23 @@
 			"total_bale",
 			"container_quantity"
 		]
+	},
+	"score_table": {
+		"replace_key": [
+			"last_name",
+			"first_name",
+			"birth",
+			"province",
+			"score",
+			"grade"
+		],
+		"label": [
+			"last_name",
+			"first_name",
+			"birth",
+			"province",
+			"score",
+			"grade"
+		]
 	}
 }

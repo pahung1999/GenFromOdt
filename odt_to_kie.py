@@ -73,7 +73,7 @@ for key_type in key_type_list:
             doc.save("temp.odt")
 
             #Save to pdf
-            subprocess.run(['unoconv', '--format=pdf', '-o', "temp.pdf", "temp.odt"])
+            subprocess.run(['unoconv', '--format=pdf', '-o', "./temp.pdf", "./temp.odt"])
 
             pdf_doc = fitz.open("temp.pdf")
             for j, page in enumerate(pdf_doc):

@@ -4,3 +4,9 @@ pillow
 numpy
 base64
 inflect
+camelot
+fitz
+json
+pyyaml
+subprocess
+tqdm

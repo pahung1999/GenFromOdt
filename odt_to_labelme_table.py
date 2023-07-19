@@ -13,8 +13,11 @@ from src.odt_convert import replace_text, gen_info
 from src.image_convert import bytes2pillow
 from src.pdf_extraction import page_extraction
 from src.get_label import labelme_gen
+from src.table_extraction import extract_table
 from tqdm import tqdm
 import subprocess
+import camelot
+
 
 yaml_path = "./config/labelme.yml"
 with open(yaml_path, 'r') as file:
@@ -61,15 +64,17 @@ for key_type in config_gen["key_and_odt"]:
             subprocess.run(['unoconv', '--format=pdf', '-o', "temp.pdf", "temp.odt"])
 
             pdf_doc = fitz.open("temp.pdf")
+            tables = camelot.read_pdf("temp.pdf", flavor = "lattice", pages='all')
             for j, page in enumerate(pdf_doc):
                 pixmap = page.get_pixmap()
                 image = bytes2pillow(pixmap.tobytes())
+                w, h = image.size
 
-                shape_dict = {}
+                shape_dict = extract_table(tables[j], h)
 
-                for box_label in config_gen['box_label']:
-                    texts, polygons = page_extraction(page, extract_type = box_label)
-                    shape_dict[box_label] = polygons
+                # for box_label in config_gen['box_label']:
+                #     texts, polygons = page_extraction(page, extract_type = box_label)
+                #     shape_dict[box_label] = polygons
 
                 labelme_gen(shape_dict, 
                             image, 
