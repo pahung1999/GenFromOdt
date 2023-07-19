@@ -4,7 +4,7 @@ Process: Load odt &rarr; Replace key &rarr; Save as pdf &rarr; Load pdf &rarr; R
 
 Steps to generate data:
 
-- Create an .odt file (can use libre office): the text is in the form of \$(key1), \$(key2),... can be replaced
+- Create an .odt file (can use libre office): the text is in the form of key1, key2,... can be replaced
 - Generate replacement information: key_dict includes key_name:{replace_key:[key1, key2, ...], label:[...]}
 - Setting the config file yml
 - Run the file odt_to_kie.py or odt_to_labelme.py
