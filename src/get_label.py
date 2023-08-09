@@ -2,8 +2,25 @@ import json
 from PIL import Image
 from .image_convert import pillow2base64
 import os
+from pprint import pprint
+import base64
 
-def labelme_gen(polygons: dict, image: Image, filename: str, savefolder: str):
+def rec_to_polygon(box):
+    x1 = box[0]
+    y1 = box[1]
+    x2 = box[2]
+    y2 = box[3]
+    return [[float(x1), float(y1)], [float(x2), float(y1)], [float(x2), float(y2)], [float(x1), float(y2)]]
+
+def polygon_to_rectangle(polygon):
+    x1= min([point[0] for point in polygon])
+    x2= max([point[0] for point in polygon])
+    y1= min([point[1] for point in polygon])
+    y2= max([point[1] for point in polygon])
+
+    return [[x1, y1], [x2, y2]]
+
+def labelme_gen(polygons: dict, image: Image, filename: str, savefolder: str, box_type = "polygon"):
     """
     Generate a LabelMe annotation file (.json) for the given polygons and image.
 
@@ -19,16 +36,32 @@ def labelme_gen(polygons: dict, image: Image, filename: str, savefolder: str):
     shapes = []
     for label in polygons:
         for point in polygons[label]:
-            shapes.append({
-                'label' : label, 
-                'points' : point, 
-                'group_id': None,
-                'shape_type': 'polygon',
-                'flags': {}
-            })
-    
+            polygon = [[float(x[0]), float(x[1])] for x in point] if isinstance(point[0], list) else rec_to_polygon(point)
+            if box_type == "polygon":
+                shapes.append({
+                    'label' : label, 
+                    'points' : polygon, # point, 
+                    'group_id': None,
+                    'shape_type': 'polygon',
+                    'flags': {}
+                })
+            else:
+                rectangle = polygon_to_rectangle(polygon)
+                shapes.append({
+                    'label' : label, 
+                    'points' : rectangle, # point, 
+                    'group_id': None,
+                    'shape_type': 'rectangle',
+                    'flags': {}
+                })
+            
     w, h = image.size
     image.save(os.path.join(savefolder, f"{filename}.jpg"))
+
+    # with open(os.path.join(savefolder, f"{filename}.jpg"), "rb") as image_file:
+    #     encoded_string = base64.b64encode(image_file.read()).decode("utf-8")
+
+
     labelme_data = {
         'version': '5.1.1',
         'flags': {}, 

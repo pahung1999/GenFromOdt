@@ -1,6 +1,19 @@
 import fitz
 import numpy as np
 
+def spiltpage_pdf(pdf_path):
+    name, ext = os.path.splitext(pdf_path)
+    pdf_reader = PdfFileReader(pdf_path)
+    numPages = pdf_reader.numPages
+    for page_number in range(numPages):
+        output_pdf_path = f"{name}_{page_number}.pdf"
+        pdf_writer = PdfFileWriter()
+        pdf_writer.addPage(pdf_reader.getPage(page_number))
+        
+        with open(output_pdf_path, "wb") as output_pdf:
+            pdf_writer.write(output_pdf)
+    return numPages
+    
 def page_extraction_word(page):
     """
     Extract individual words and their corresponding polygons from a page.

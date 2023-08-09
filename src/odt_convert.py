@@ -5,7 +5,8 @@ import random
 from faker import Faker
 import locale
 import inflect
-
+import pandas as pd
+from lorem_text import lorem
 
 def replace_text_single(Elem, item, pattern, repl):
     """
@@ -53,12 +54,20 @@ def replace_text(node, k, v):
     Returns:
         odf.Element: The modified parent node.
     """
-
+    
+    count = 0
     elements = [text.H, text.P, text.Span]
     for Elem in elements:
         for elem in node.getElementsByType(Elem):
             if k in str(elem):
-                elem = replace_text_single(Elem, elem, k, str(v))
+                if isinstance(v, list):
+                    count+=1
+                    v_value = random.choice(v)  #v[len(v)%count]
+                    # print("v_value: ", v_value)
+                    # print("k: ", k)
+                    elem = replace_text_single(Elem, elem, k, str(v_value))
+                else:
+                    elem = replace_text_single(Elem, elem, k, str(v))
     return node
 
 def gen_shipment_date():
@@ -421,4 +430,54 @@ def gen_info(key_name: str, replace_key: str):
 
         check_replace_key(replace_dict, replace_key)
         return replace_dict
+    
+    if key_name == "score_table":
+        rows_len = 200
+
+        name_file = "./data/vietnamese_name_1_word.txt"
+        with open(name_file, "r") as f:
+            name_words = [x.replace("\n", "") for x in f.readlines()]
+        
+        start_date = datetime(1930, 1, 1)
+        end_date = datetime(2005, 1, 1)
+
+        random_date = (start_date + random.random() * (end_date - start_date))
+        date_string = random_date.strftime("%d/%m/%Y")
+        
+        
+        # Specify the path to the XLS file
+        address_path = "./data/address_list.csv"
+        # Load the XLS file into a DataFrame
+        df = pd.read_csv(address_path)
+        province_list = []
+        for x in df['Province']:
+            if x not in province_list:
+                province_list.append(x)
+
+        last_name_list = [" ".join(random.choices(name_words, k = random.randint(2, 4))) for i in range(rows_len)]
+        first_name_name_list = [random.choice(name_words) for i in range(rows_len)]
+        birth_list = [(start_date + random.random() * (end_date - start_date)).strftime("%d/%m/%Y") for i in range(rows_len)]
+        province = [random.choice(province_list) for i in range(rows_len)]
+        score = [random.randint(10, 100) for i in range(rows_len)]
+        grade = [random.choice(["Giỏi", "Trung bình", "Khá"]) for i in range(rows_len)]
+
+        replace_dict = {
+            "last_name" : last_name_list, 
+            "first_name" : first_name_name_list, 
+            "birth" : birth_list, 
+            "province" : province, 
+            "score": score, 
+            "grade": grade,
+        }
+        return replace_dict
+        # print(replace_dict)
     return {}
+
+
+def gen_dump_text(max_words=50):
+    rows_len = 20
+    dump_dict = {}
+    for i in range(max_words):
+        dump_dict[f"dump_{i+1}"] = [lorem.words(i+1) for i in range(rows_len)]
+    
+    return dump_dict
